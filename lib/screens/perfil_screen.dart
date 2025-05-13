@@ -3,8 +3,93 @@ import 'package:go_router/go_router.dart';
 import '../widgets/Layout.dart';
 import '../services/auth_service.dart';
 
-class PerfilScreen extends StatelessWidget {
+class PerfilScreen extends StatefulWidget {
   const PerfilScreen({super.key});
+
+  @override
+  State<PerfilScreen> createState() => _PerfilScreenState();
+}
+
+class _PerfilScreenState extends State<PerfilScreen> {
+  final authService = AuthService();
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    // Si ya tenemos los datos del usuario, solo actualizamos el estado
+    if (authService.currentUser != null) {
+      setState(() {
+        isLoading = false;
+      });
+    } else {
+      // De lo contrario, mostramos un mensaje de error
+      setState(() {
+        isLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al cargar les dades de l\'usuari. Si us plau, inicia sessió de nou.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        // Redirigir al login si no hay usuario
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          context.go('/login');
+        });
+      }
+    }
+  }
+
+  void _editarPerfil() {
+    if (authService.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No s\'ha pogut carregar l\'usuari'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Mostrar un diálogo de edición de perfil
+    showDialog(
+      context: context,
+      builder: (context) => _buildEditarPerfilDialog(context),
+    ).then((value) {
+      if (value == true) {
+        setState(() {}); // Actualizar la UI después de editar
+      }
+    });
+  }
+
+  void _cambiarContrasenya() {
+    if (authService.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No s\'ha pogut carregar l\'usuari'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Mostrar un diálogo para cambiar la contraseña
+    showDialog(
+      context: context,
+      builder: (context) => _buildCambiarContrasenyaDialog(context),
+    ).then((value) {
+      if (value == true) {
+        setState(() {}); // Actualizar la UI después de cambiar la contraseña
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +101,9 @@ class PerfilScreen extends StatelessWidget {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(
+              child: isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const CircleAvatar(
@@ -26,14 +113,14 @@ class PerfilScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Exemple',
+                    authService.currentUser?.name ?? 'Usuari',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'demo@exemple.com',
+                    authService.currentUser?.email ?? 'email@exemple.com',
                     style: Theme.of(
                       context,
                     ).textTheme.titleMedium?.copyWith(color: Colors.grey),
@@ -52,10 +139,15 @@ class PerfilScreen extends StatelessWidget {
                             context,
                             Icons.badge,
                             'ID',
-                            '67f8f3103368468b6e9d509c',
+                            authService.currentUser?.id ?? 'N/A',
                           ),
                           const Divider(),
-                          _buildProfileItem(context, Icons.cake, 'Edat', '22'),
+                          _buildProfileItem(
+                            context, 
+                            Icons.cake, 
+                            'Edat', 
+                            (authService.currentUser?.age ?? 0).toString(),
+                          ),
                         ],
                       ),
                     ),
@@ -76,17 +168,19 @@ class PerfilScreen extends StatelessWidget {
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           const SizedBox(height: 16),
-                          _buildSettingItem(
-                            context,
-                            Icons.edit,
-                            'Editar Perfil',
-                            'Actualitza la teva informació personal',
+                          ListTile(
+                            leading: Icon(Icons.edit, color: Theme.of(context).colorScheme.primary),
+                            title: const Text('Editar Perfil'),
+                            subtitle: const Text('Actualitza la teva informació personal'),
+                            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                            onTap: _editarPerfil,
                           ),
-                          _buildSettingItem(
-                            context,
-                            Icons.lock,
-                            'Canviar contrasenya',
-                            'Actualitzar la contrasenya',
+                          ListTile(
+                            leading: Icon(Icons.lock, color: Theme.of(context).colorScheme.primary),
+                            title: const Text('Canviar contrasenya'),
+                            subtitle: const Text('Actualitzar la contrasenya'),
+                            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                            onTap: _cambiarContrasenya,
                           ),
                         ],
                       ),
@@ -96,7 +190,6 @@ class PerfilScreen extends StatelessWidget {
                   ElevatedButton.icon(
                     onPressed: () async {
                       try {
-                        final authService = AuthService();
                         authService.logout();
                         context.go('/login');
                       } catch (e) {
@@ -163,18 +256,231 @@ class PerfilScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingItem(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-  ) {
-    return ListTile(
-      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: () {},
+  // Widget para el diálogo de editar perfil
+  Widget _buildEditarPerfilDialog(BuildContext context) {
+    final nameController = TextEditingController(text: authService.currentUser?.name);
+    final ageController = TextEditingController(text: authService.currentUser?.age.toString());
+    final emailController = TextEditingController(text: authService.currentUser?.email);
+    final formKey = GlobalKey<FormState>();
+    
+    return AlertDialog(
+      title: const Text('Editar Perfil'),
+      content: Form(
+        key: formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nom',
+                  prefixIcon: Icon(Icons.person),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Cal omplir el nom';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: ageController,
+                decoration: const InputDecoration(
+                  labelText: 'Edat',
+                  prefixIcon: Icon(Icons.cake),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Cal omplir l\'edat';
+                  }
+                  final age = int.tryParse(value);
+                  if (age == null || age < 0) {
+                    return 'Si us plau, insereix una edat vàlida';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Correu electrònic',
+                  prefixIcon: Icon(Icons.email),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'El correu electrònic no pot estar buit';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Si us plau insereix una adreça vàlida';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('CANCEL·LAR'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (formKey.currentState!.validate()) {
+              final userId = authService.currentUser!.id!;
+              final success = await authService.updateUser(
+                userId,
+                nameController.text,
+                int.tryParse(ageController.text) ?? 0,
+                emailController.text,
+              );
+              
+              if (!context.mounted) return;
+              
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Perfil actualitzat correctament'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                Navigator.pop(context, true);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Error al actualitzar el perfil'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                Navigator.pop(context, false);
+              }
+            }
+          },
+          child: const Text('GUARDAR'),
+        ),
+      ],
+    );
+  }
+
+  // Widget para el diálogo de cambiar contraseña
+  Widget _buildCambiarContrasenyaDialog(BuildContext context) {
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool showPassword = false;
+    
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          title: const Text('Canviar Contrasenya'),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: newPasswordController,
+                    decoration: InputDecoration(
+                      labelText: 'Nova contrasenya',
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          showPassword ? Icons.visibility_off : Icons.visibility,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            showPassword = !showPassword;
+                          });
+                        },
+                      ),
+                    ),
+                    obscureText: !showPassword,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'La contrasenya no pot estar buida';
+                      }
+                      if (value.length < 6) {
+                        return 'La contrasenya ha de tenir almenys 6 caràcters';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: confirmPasswordController,
+                    decoration: InputDecoration(
+                      labelText: 'Confirmar contrasenya',
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          showPassword ? Icons.visibility_off : Icons.visibility,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            showPassword = !showPassword;
+                          });
+                        },
+                      ),
+                    ),
+                    obscureText: !showPassword,
+                    validator: (value) {
+                      if (value != newPasswordController.text) {
+                        return 'Les contrasenyes no coincideixen';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL·LAR'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final userId = authService.currentUser!.id!;
+                  final success = await authService.changePassword(
+                    userId,
+                    newPasswordController.text,
+                  );
+                  
+                  if (!context.mounted) return;
+                  
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Contrasenya actualitzada correctament'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    Navigator.pop(context, true);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Error al actualitzar la contrasenya'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    Navigator.pop(context, false);
+                  }
+                }
+              },
+              child: const Text('GUARDAR'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -23,6 +23,8 @@ class LoginPage extends StatelessWidget {
 
     final result = await authService.login(email, password);
 
+    if (!context.mounted) return;
+
     if (result.containsKey('error')) {
       _showError(context, result['error']);
     } else {

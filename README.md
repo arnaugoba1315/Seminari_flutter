@@ -1,3 +1,7 @@
+ VIDEO YT
+ https://youtu.be/4yIRqOFIEjI
+FUENTES:CLAUDE.IO
+
 # seminari_flutter
 
 A new Flutter project.
